@@ -1,37 +1,37 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from 'react';
 import {
   JsonNode,
   JsonViewerConfig,
   SearchResult,
   JsonStats,
-} from "@/types/json";
+} from '@/types/json';
 import {
   createJsonNode,
   calculateJsonStats,
   searchInJsonAsync,
   searchInJson,
-} from "@/lib/json-utils";
-import { JsonWorkerManager } from "@/lib/json-worker-manager";
+} from '@/lib/json-utils';
+import { JsonWorkerManager } from '@/lib/json-worker-manager';
 import {
   expandPathsInNode,
   resetNodeExpansion,
   setAllNodesExpanded,
   getPathsToExpand,
   toggleNodeAtPath,
-} from "@/lib/json-node-utils";
-import { useDebouncedSearch } from "./use-debounced-search";
-import { useWorkerManager } from "./use-worker-manager";
-import { useProgressState } from "./use-progress-state";
-import { useThemeManager } from "./use-theme-manager";
-import { useScrollToElement } from "./use-scroll-to-element";
+} from '@/lib/json-node-utils';
+import { useDebouncedSearch } from './use-debounced-search';
+import { useWorkerManager } from './use-worker-manager';
+import { useProgressState } from './use-progress-state';
+import { useThemeManager } from './use-theme-manager';
+import { useScrollToElement } from './use-scroll-to-element';
 
 const DEFAULT_CONFIG: JsonViewerConfig = {
-  viewMode: "tree",
+  viewMode: 'tree',
   showLineNumbers: false,
   showDataTypes: true,
   highlightSearch: true,
   collapseLevel: 2,
-  theme: "auto",
+  theme: 'auto',
   enableVirtualization: true,
   virtualizationThreshold: 10000,
 };
@@ -39,14 +39,15 @@ const DEFAULT_CONFIG: JsonViewerConfig = {
 export function useJsonViewer() {
   const [jsonNode, setJsonNode] = useState<JsonNode | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [stats, setStats] = useState<JsonStats | null>(null);
   const [currentSearchResultIndex, setCurrentSearchResultIndex] = useState(0);
   const [config, setConfig] = useState<JsonViewerConfig>(DEFAULT_CONFIG);
+  const [selectedPath, setSelectedPath] = useState<string[] | null>(null);
 
-  const originalJsonStringRef = useRef<string>("");
-  const currentSearchRef = useRef<string>("");
+  const originalJsonStringRef = useRef<string>('');
+  const currentSearchRef = useRef<string>('');
 
   const worker = useWorkerManager();
   const {
@@ -95,7 +96,7 @@ export function useJsonViewer() {
       if (!jsonNode) return;
 
       const trimmedQuery = query.trim();
-      const isJsonPathQuery = trimmedQuery.startsWith("$");
+      const isJsonPathQuery = trimmedQuery.startsWith('$');
       const isComplexQuery = isJsonPathQuery;
 
       startSearching();
@@ -184,7 +185,7 @@ export function useJsonViewer() {
       } catch (err) {
         if (currentSearchRef.current === searchId) {
           const errorMessage =
-            err instanceof Error ? err.message : "Unknown error";
+            err instanceof Error ? err.message : 'Unknown error';
           setSearchError(errorMessage);
           setSearchResults([]);
         }
@@ -212,7 +213,7 @@ export function useJsonViewer() {
       },
       (args) => {
         const [query] = args;
-        const isJsonPathQuery = query.trim().startsWith("$");
+        const isJsonPathQuery = query.trim().startsWith('$');
         return isJsonPathQuery ? 400 : 100;
       }
     );
@@ -232,32 +233,32 @@ export function useJsonViewer() {
           );
           setJsonNode(node);
 
-          updateLoadingProgress(100, "Calculating statistics...");
+          updateLoadingProgress(100, 'Calculating statistics...');
           const calculatedStats = await worker.calculateStats(node);
           setStats(calculatedStats);
         } else {
-          updateLoadingProgress(10, "Parsing JSON...");
+          updateLoadingProgress(10, 'Parsing JSON...');
 
-          const parseResult = await import("@/lib/json-utils").then((utils) =>
+          const parseResult = await import('@/lib/json-utils').then((utils) =>
             utils.parseJsonSafely(jsonString)
           );
 
           if (!parseResult.success || parseResult.data === undefined) {
-            throw new Error(parseResult.error || "Failed to parse JSON");
+            throw new Error(parseResult.error || 'Failed to parse JSON');
           }
 
-          updateLoadingProgress(50, "Creating node tree...");
+          updateLoadingProgress(50, 'Creating node tree...');
           const node = createJsonNode(parseResult.data);
           setJsonNode(node);
 
-          updateLoadingProgress(90, "Calculating statistics...");
+          updateLoadingProgress(90, 'Calculating statistics...');
           const calculatedStats = calculateJsonStats(node);
           setStats(calculatedStats);
         }
 
         finishLoading();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to parse JSON");
+        setError(err instanceof Error ? err.message : 'Failed to parse JSON');
         finishLoading();
       }
     },
@@ -283,11 +284,11 @@ export function useJsonViewer() {
       }
 
       const trimmedQuery = query.trim();
-      const isJsonPathQuery = trimmedQuery.startsWith("$");
+      const isJsonPathQuery = trimmedQuery.startsWith('$');
 
       if (
         isJsonPathQuery &&
-        (trimmedQuery.length < 3 || !trimmedQuery.includes("."))
+        (trimmedQuery.length < 3 || !trimmedQuery.includes('.'))
       ) {
         clearSearchState();
         return;
@@ -309,14 +310,14 @@ export function useJsonViewer() {
 
       // For virtualized trees, we need to trigger a scroll event
       // The scrolling will be handled by the VirtualizedJsonTree component
-      const pathId = `json-node-${result.path.join("-")}`;
+      const pathId = `json-node-${result.path.join('-')}`;
 
       // Try to scroll using the existing scroll mechanism
       scrollToElement(pathId);
 
       // Emit a custom event for virtualized tree to handle
       window.dispatchEvent(
-        new CustomEvent("scrollToSearchResult", {
+        new CustomEvent('scrollToSearchResult', {
           detail: { path: result.path, resultIndex },
         })
       );
@@ -346,15 +347,20 @@ export function useJsonViewer() {
     setConfig((prev) => ({ ...prev, ...updates }));
   }, []);
 
+  const selectNode = useCallback((path: string[]) => {
+    setSelectedPath(path);
+  }, []);
+
   const clearData = useCallback(() => {
     cancelPending();
-    currentSearchRef.current = "";
-    originalJsonStringRef.current = "";
+    currentSearchRef.current = '';
+    originalJsonStringRef.current = '';
 
     setJsonNode(null);
     setError(null);
-    setSearchQuery("");
+    setSearchQuery('');
     setStats(null);
+    setSelectedPath(null);
     clearSearchState();
   }, [cancelPending, clearSearchState]);
 
@@ -367,12 +373,14 @@ export function useJsonViewer() {
     currentSearchResultIndex,
     stats,
     config,
+    selectedPath,
     loadingProgress,
     searchProgress,
     isSearching,
     parseJson,
     searchJson,
     toggleNode,
+    selectNode,
     expandAll,
     collapseAll,
     updateConfig,

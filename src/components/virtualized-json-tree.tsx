@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, {
   memo,
@@ -7,10 +7,10 @@ import React, {
   useRef,
   useEffect,
   useState,
-} from "react";
-import { FixedSizeList as List, ListChildComponentProps } from "react-window";
-import { ChevronRight, ChevronDown } from "lucide-react";
-import { JsonNode as JsonNodeType } from "@/types/json";
+} from 'react';
+import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
+import { ChevronRight, ChevronDown } from 'lucide-react';
+import { JsonNode as JsonNodeType } from '@/types/json';
 
 type FlatNode = {
   node: JsonNodeType;
@@ -22,6 +22,8 @@ type FlatNode = {
 type VirtualizedJsonTreeProps = {
   node: JsonNodeType;
   onToggle: (path: string[]) => void;
+  onSelect?: (path: string[]) => void;
+  selectedPath?: string[] | null;
   showDataTypes: boolean;
   showLineNumbers: boolean;
   highlightSearch: boolean;
@@ -54,7 +56,7 @@ function flattenJsonTreeProgressive(
 
   // If node is expanded and has children
   if (node.isExpanded && node.children && node.children.length > 0) {
-    const nodeKey = node.path.join(".");
+    const nodeKey = node.path.join('.');
     const loadedCount = loadedChunks.get(nodeKey) || INITIAL_LOAD_SIZE;
     const childrenToShow = Math.min(loadedCount, node.children.length);
 
@@ -68,13 +70,13 @@ function flattenJsonTreeProgressive(
     if (childrenToShow < node.children.length) {
       const remainingCount = node.children.length - childrenToShow;
       const loadMoreNode: JsonNodeType = {
-        key: "load-more",
+        key: 'load-more',
         value: `Load ${Math.min(
           CHUNK_SIZE,
           remainingCount
         )} more items (${remainingCount} remaining)`,
-        type: "string",
-        path: [...node.path, "load-more"],
+        type: 'string',
+        path: [...node.path, 'load-more'],
         depth: level + 1,
         isExpanded: false,
       };
@@ -119,6 +121,8 @@ const VirtualizedNodeRenderer = memo(
     node,
     level,
     onToggle,
+    onSelect,
+    selectedPath,
     showDataTypes,
     showLineNumbers,
     highlightSearch,
@@ -127,14 +131,22 @@ const VirtualizedNodeRenderer = memo(
     node: JsonNodeType;
     level: number;
     onToggle: (path: string[]) => void;
+    onSelect?: (path: string[]) => void;
+    selectedPath?: string[] | null;
     showDataTypes: boolean;
     showLineNumbers: boolean;
     highlightSearch: boolean;
     searchQuery: string;
   }) => {
     const hasChildren = node.children && node.children.length > 0;
-    const isExpandable = node.type === "object" || node.type === "array";
+    const isExpandable = node.type === 'object' || node.type === 'array';
     const paddingLeft = showLineNumbers ? level * 24 + 48 : level * 24 + 8;
+
+    // Check if this node is currently selected
+    const isSelected =
+      selectedPath &&
+      selectedPath.length === node.path.length &&
+      selectedPath.every((segment, index) => segment === node.path[index]);
 
     const handleToggle = useCallback(() => {
       if (isExpandable) {
@@ -142,41 +154,51 @@ const VirtualizedNodeRenderer = memo(
       }
     }, [isExpandable, onToggle, node.path]);
 
+    const handleSelect = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onSelect) {
+          onSelect(node.path);
+        }
+      },
+      [onSelect, node.path]
+    );
+
     const renderValue = () => {
-      if (node.type === "string") {
+      if (node.type === 'string') {
         return `"${node.value}"`;
       }
-      if (node.type === "object") {
-        return hasChildren ? `{${node.children?.length || 0} items}` : "{}";
+      if (node.type === 'object') {
+        return hasChildren ? `{${node.children?.length || 0} items}` : '{}';
       }
-      if (node.type === "array") {
-        return hasChildren ? `[${node.children?.length || 0} items]` : "[]";
+      if (node.type === 'array') {
+        return hasChildren ? `[${node.children?.length || 0} items]` : '[]';
       }
       return String(node.value);
     };
 
     const getTypeColor = () => {
       switch (node.type) {
-        case "string":
-          return "text-green-600 dark:text-green-400";
-        case "number":
-          return "text-blue-600 dark:text-blue-400";
-        case "boolean":
-          return "text-purple-600 dark:text-purple-400";
-        case "null":
-          return "text-gray-500 dark:text-gray-400";
-        case "object":
-          return "text-orange-600 dark:text-orange-400";
-        case "array":
-          return "text-indigo-600 dark:text-indigo-400";
+        case 'string':
+          return 'text-green-600 dark:text-green-400';
+        case 'number':
+          return 'text-blue-600 dark:text-blue-400';
+        case 'boolean':
+          return 'text-purple-600 dark:text-purple-400';
+        case 'null':
+          return 'text-gray-500 dark:text-gray-400';
+        case 'object':
+          return 'text-orange-600 dark:text-orange-400';
+        case 'array':
+          return 'text-indigo-600 dark:text-indigo-400';
         default:
-          return "text-foreground";
+          return 'text-foreground';
       }
     };
 
     const highlightText = (text: string) => {
       if (!highlightSearch || !searchQuery) return text;
-      const regex = new RegExp(`(${searchQuery})`, "gi");
+      const regex = new RegExp(`(${searchQuery})`, 'gi');
       return text.replace(
         regex,
         '<mark class="bg-yellow-200 dark:bg-yellow-700">$1</mark>'
@@ -189,11 +211,17 @@ const VirtualizedNodeRenderer = memo(
         flex items-center gap-2 p-2 rounded-lg group
         transition-all duration-200 ease-in-out
         hover:bg-accent/60 hover:shadow-sm
-        ${isExpandable ? "cursor-pointer" : "cursor-default"}
+        cursor-pointer
         min-h-[2.5rem]
+        ${isSelected ? 'bg-primary/20 border-2 border-primary/50' : ''}
       `}
         style={{ paddingLeft: `${paddingLeft}px` }}
-        onClick={handleToggle}
+        onClick={(e) => {
+          if (isExpandable) {
+            handleToggle();
+          }
+          handleSelect(e);
+        }}
       >
         <div className="w-4 h-4 flex items-center justify-center shrink-0">
           {isExpandable &&
@@ -235,13 +263,15 @@ const VirtualizedNodeRenderer = memo(
   }
 );
 
-VirtualizedNodeRenderer.displayName = "VirtualizedNodeRenderer";
+VirtualizedNodeRenderer.displayName = 'VirtualizedNodeRenderer';
 
 const VirtualizedTreeItem = memo(
   ({ index, style, data }: ListChildComponentProps) => {
     const {
       flatNodes,
       onToggle,
+      onSelect,
+      selectedPath,
       onLoadMore,
       showDataTypes,
       showLineNumbers,
@@ -282,6 +312,8 @@ const VirtualizedTreeItem = memo(
           node={flatNode.node}
           level={flatNode.level}
           onToggle={onToggle}
+          onSelect={onSelect}
+          selectedPath={selectedPath}
           showDataTypes={showDataTypes}
           showLineNumbers={showLineNumbers}
           highlightSearch={highlightSearch}
@@ -292,19 +324,21 @@ const VirtualizedTreeItem = memo(
   }
 );
 
-VirtualizedTreeItem.displayName = "VirtualizedTreeItem";
+VirtualizedTreeItem.displayName = 'VirtualizedTreeItem';
 
 export const VirtualizedJsonTree = memo(
   ({
     node,
     onToggle,
+    onSelect,
+    selectedPath,
     showDataTypes,
     showLineNumbers,
     highlightSearch,
     searchQuery,
     className,
     height,
-    width = "100%",
+    width = '100%',
     itemHeight = 40,
     overscan = 5,
   }: VirtualizedJsonTreeProps) => {
@@ -365,21 +399,21 @@ export const VirtualizedJsonTree = memo(
       const handleScrollToSearchResult = (event: CustomEvent) => {
         const { path } = event.detail;
         const targetIndex = flatNodes.findIndex(
-          (flatNode) => flatNode.node.path.join(".") === path.join(".")
+          (flatNode) => flatNode.node.path.join('.') === path.join('.')
         );
 
         if (targetIndex !== -1 && listRef.current) {
-          listRef.current.scrollToItem(targetIndex, "center");
+          listRef.current.scrollToItem(targetIndex, 'center');
         }
       };
 
       window.addEventListener(
-        "scrollToSearchResult",
+        'scrollToSearchResult',
         handleScrollToSearchResult as EventListener
       );
       return () => {
         window.removeEventListener(
-          "scrollToSearchResult",
+          'scrollToSearchResult',
           handleScrollToSearchResult as EventListener
         );
       };
@@ -387,7 +421,7 @@ export const VirtualizedJsonTree = memo(
 
     // Handle loading more items for a specific parent node
     const handleLoadMore = useCallback((parentPath: string[]) => {
-      const nodeKey = parentPath.join(".");
+      const nodeKey = parentPath.join('.');
       setLoadedChunks((prev) => {
         const newMap = new Map(prev);
         const currentLoaded = newMap.get(nodeKey) || INITIAL_LOAD_SIZE;
@@ -408,6 +442,8 @@ export const VirtualizedJsonTree = memo(
       () => ({
         flatNodes,
         onToggle: enhancedToggle,
+        onSelect,
+        selectedPath,
         onLoadMore: handleLoadMore,
         showDataTypes,
         showLineNumbers,
@@ -417,6 +453,8 @@ export const VirtualizedJsonTree = memo(
       [
         flatNodes,
         enhancedToggle,
+        onSelect,
+        selectedPath,
         handleLoadMore,
         showDataTypes,
         showLineNumbers,
@@ -465,4 +503,4 @@ export const VirtualizedJsonTree = memo(
   }
 );
 
-VirtualizedJsonTree.displayName = "VirtualizedJsonTree";
+VirtualizedJsonTree.displayName = 'VirtualizedJsonTree';

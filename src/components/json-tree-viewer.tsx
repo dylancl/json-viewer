@@ -1,21 +1,22 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useCallback } from "react";
-import { JsonNode } from "@/components/json-node";
-import { VirtualizedJsonTree } from "@/components/virtualized-json-tree";
-import { JsonFormatter } from "@/components/json-formatter";
-import { SearchModal } from "@/components/search-modal";
-import { StatsPanel } from "@/components/stats-panel";
-import { Toolbar } from "@/components/toolbar";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useEffect, useState, useCallback } from 'react';
+import { JsonNode } from '@/components/json-node';
+import { VirtualizedJsonTree } from '@/components/virtualized-json-tree';
+import { JsonFormatter } from '@/components/json-formatter';
+import { SearchModal } from '@/components/search-modal';
+import { StatsPanel } from '@/components/stats-panel';
+import { JsonPathIndicator } from '@/components/json-path-indicator';
+import { Toolbar } from '@/components/toolbar';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
-} from "@/components/ui/resizable";
-import { Card } from "@/components/ui/card";
-import { Loader2, AlertTriangle, FileX } from "lucide-react";
-import { useJsonViewer } from "@/hooks/use-json-viewer";
+} from '@/components/ui/resizable';
+import { Card } from '@/components/ui/card';
+import { Loader2, AlertTriangle, FileX } from 'lucide-react';
+import { useJsonViewer } from '@/hooks/use-json-viewer';
 
 type JsonTreeViewerProps = {
   initialJsonContent?: string;
@@ -38,12 +39,14 @@ export function JsonTreeViewer({
     currentSearchResultIndex,
     stats,
     config,
+    selectedPath,
     loadingProgress,
     searchProgress,
     isSearching,
     parseJson,
     searchJson,
     toggleNode,
+    selectNode,
     expandAll,
     collapseAll,
     updateConfig,
@@ -54,7 +57,7 @@ export function JsonTreeViewer({
   // Detect theme changes
   useEffect(() => {
     const checkTheme = () => {
-      setIsDarkMode(document.documentElement.classList.contains("dark"));
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
     };
 
     // Check initial theme
@@ -64,7 +67,7 @@ export function JsonTreeViewer({
     const observer = new MutationObserver(checkTheme);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class"],
+      attributeFilter: ['class'],
     });
 
     return () => observer.disconnect();
@@ -147,7 +150,7 @@ export function JsonTreeViewer({
     }
 
     switch (config.viewMode) {
-      case "tree":
+      case 'tree':
         // Determine if we should use virtualization
         const shouldVirtualize =
           config.enableVirtualization &&
@@ -160,6 +163,8 @@ export function JsonTreeViewer({
               <VirtualizedJsonTree
                 node={jsonNode}
                 onToggle={toggleNode}
+                onSelect={selectNode}
+                selectedPath={selectedPath}
                 showDataTypes={config.showDataTypes}
                 showLineNumbers={config.showLineNumbers}
                 highlightSearch={config.highlightSearch}
@@ -175,6 +180,8 @@ export function JsonTreeViewer({
                 <JsonNode
                   node={jsonNode}
                   onToggle={toggleNode}
+                  onSelect={selectNode}
+                  selectedPath={selectedPath}
                   showDataTypes={config.showDataTypes}
                   showLineNumbers={config.showLineNumbers}
                   highlightSearch={config.highlightSearch}
@@ -186,14 +193,14 @@ export function JsonTreeViewer({
           );
         }
 
-      case "raw":
+      case 'raw':
         return (
           <pre className="text-sm font-mono whitespace-pre-wrap break-words text-foreground leading-relaxed p-4">
             {JSON.stringify(jsonNode.value)}
           </pre>
         );
 
-      case "formatted":
+      case 'formatted':
         return (
           <div className="h-[calc(100vh-200px)] min-h-[500px] w-full">
             <JsonFormatter jsonValue={jsonNode.value} isDarkMode={isDarkMode} />
@@ -237,7 +244,8 @@ export function JsonTreeViewer({
 
           {/* Side Panel */}
           <ResizablePanel defaultSize={30} minSize={20}>
-            <div className="h-full p-4 bg-muted/30">
+            <div className="h-full p-4 bg-muted/30 space-y-4">
+              <JsonPathIndicator selectedPath={selectedPath} />
               <StatsPanel stats={stats} />
             </div>
           </ResizablePanel>

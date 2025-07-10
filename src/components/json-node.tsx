@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { memo } from "react";
+import { memo } from 'react';
 import {
   ChevronRight,
   ChevronDown,
@@ -8,15 +8,15 @@ import {
   Braces,
   Brackets,
   Check,
-} from "lucide-react";
-import { JsonNode as JsonNodeType } from "@/types/json";
-import { Button } from "@/components/ui/button";
+} from 'lucide-react';
+import { JsonNode as JsonNodeType } from '@/types/json';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from '@/components/ui/tooltip';
 import {
   useClipboard,
   useJsonNodeDisplay,
@@ -24,11 +24,13 @@ import {
   useLineNumbers,
   useTextHighlight,
   usePerformanceOptimization,
-} from "@/hooks";
+} from '@/hooks';
 
 type JsonNodeProps = {
   node: JsonNodeType;
   onToggle: (path: string[]) => void;
+  onSelect?: (path: string[]) => void;
+  selectedPath?: string[] | null;
   showDataTypes: boolean;
   showLineNumbers: boolean;
   highlightSearch: boolean;
@@ -53,7 +55,7 @@ const JsonNodeWrapper = memo((props: JsonNodeProps) => {
     </TooltipProvider>
   );
 });
-JsonNodeWrapper.displayName = "JsonNodeWrapper";
+JsonNodeWrapper.displayName = 'JsonNodeWrapper';
 
 type JsonNodeComponentProps = JsonNodeProps & {
   lineNumbers: Map<string, number>;
@@ -65,6 +67,8 @@ type JsonNodeComponentProps = JsonNodeProps & {
 function JsonNodeComponent({
   node,
   onToggle,
+  onSelect,
+  selectedPath,
   showDataTypes,
   showLineNumbers,
   highlightSearch,
@@ -81,13 +85,26 @@ function JsonNodeComponent({
   const { highlightText } = useTextHighlight(highlightSearch, searchQuery);
 
   const hasChildren = node.children && node.children.length > 0;
-  const isExpandable = node.type === "object" || node.type === "array";
-  const pathKey = node.path.join("-");
+  const isExpandable = node.type === 'object' || node.type === 'array';
+  const pathKey = node.path.join('-');
   const currentLineNumber = lineNumbers.get(pathKey) || 0;
+
+  // Check if this node is currently selected
+  const isSelected =
+    selectedPath &&
+    selectedPath.length === node.path.length &&
+    selectedPath.every((segment, index) => segment === node.path[index]);
 
   const handleToggle = () => {
     if (isExpandable) {
       onToggle(node.path);
+    }
+  };
+
+  const handleSelect = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onSelect) {
+      onSelect(node.path);
     }
   };
 
@@ -143,11 +160,17 @@ function JsonNodeComponent({
           flex items-start gap-2 p-2 rounded-lg group
           transition-all duration-200 ease-in-out
           hover:bg-accent/60 hover:shadow-sm
-          ${isExpandable ? "cursor-pointer" : "cursor-default"}
+          ${isExpandable ? 'cursor-pointer' : 'cursor-pointer'}
+          ${isSelected ? 'bg-primary/20 border-2 border-primary/50' : ''}
           min-h-[2.5rem] relative
         `}
         style={{ paddingLeft: `${paddingLeft}px` }}
-        onClick={handleToggle}
+        onClick={(e) => {
+          if (isExpandable) {
+            handleToggle();
+          }
+          handleSelect(e);
+        }}
       >
         {showLineNumbers && (
           <div className="w-8 text-right text-xs text-muted-foreground/80 font-mono shrink-0 absolute left-2 top-2.5 select-none">
@@ -165,10 +188,10 @@ function JsonNodeComponent({
         </div>
 
         <div className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
-          {node.type === "object" && (
+          {node.type === 'object' && (
             <Braces className="h-3.5 w-3.5 text-orange-500 dark:text-orange-400" />
           )}
-          {node.type === "array" && (
+          {node.type === 'array' && (
             <Brackets className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
           )}
         </div>
@@ -205,9 +228,9 @@ function JsonNodeComponent({
           className={`
             opacity-0 group-hover:opacity-100 h-8 w-8 p-0 shrink-0
             transition-all duration-200 hover:bg-accent
-            ${copied ? "opacity-100" : ""}
+            ${copied ? 'opacity-100' : ''}
           `}
-          title={copied ? "Copied!" : "Copy value"}
+          title={copied ? 'Copied!' : 'Copy value'}
         >
           {copied ? (
             <Check className="h-3.5 w-3.5 text-emerald-600" />
@@ -226,8 +249,8 @@ function JsonNodeComponent({
               className="absolute w-px bg-border/60 opacity-70"
               style={{
                 left: `${connectionLineLeft}px`,
-                top: "0",
-                height: "calc(100% - 2rem)",
+                top: '0',
+                height: 'calc(100% - 2rem)',
               }}
             />
 
@@ -236,9 +259,11 @@ function JsonNodeComponent({
                 .children!.slice(0, childrenToRender || node.children!.length)
                 .map((child, index) => (
                   <JsonNodeComponent
-                    key={`${child.path.join(".")}-${index}`}
+                    key={`${child.path.join('.')}-${index}`}
                     node={child}
                     onToggle={onToggle}
+                    onSelect={onSelect}
+                    selectedPath={selectedPath}
                     showDataTypes={showDataTypes}
                     showLineNumbers={showLineNumbers}
                     highlightSearch={highlightSearch}
@@ -256,7 +281,7 @@ function JsonNodeComponent({
                     style={{ marginLeft: `${paddingLeft}px` }}
                   >
                     <div className="text-amber-600 dark:text-amber-400">
-                      ⚠️ Showing {childrenToRender} of {node.children!.length}{" "}
+                      ⚠️ Showing {childrenToRender} of {node.children!.length}{' '}
                       items.
                       <span className="ml-2 text-xs opacity-80">
                         Large datasets are partially rendered for performance
@@ -278,7 +303,7 @@ function JsonNodeComponent({
               <div className="w-4 h-4" />
               <div className="w-4 h-4" />
               <span className="font-semibold text-base">
-                {node.type === "object" ? "}" : "]"}
+                {node.type === 'object' ? '}' : ']'}
               </span>
             </div>
           </div>
